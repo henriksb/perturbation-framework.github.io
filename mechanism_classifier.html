@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Perturbation Framework — Mechanism Classifier</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+    background: #0a0a0f;
+    color: #c8c8d0;
+    min-height: 100vh;
+    padding: 24px 16px;
+  }
+
+  .container { max-width: 960px; margin: 0 auto; }
+
+  .header { margin-bottom: 28px; border-bottom: 1px solid #1a1a2e; padding-bottom: 16px; }
+  .header h1 {
+    font-size: 18px; font-weight: 600; color: #e0e0e8;
+    letter-spacing: 0.05em; text-transform: uppercase;
+  }
+  .header p { font-size: 11px; color: #666; margin-top: 6px; letter-spacing: 0.03em; }
+
+  .layout { display: flex; gap: 20px; flex-wrap: wrap; }
+  .left-panel { flex: 1 1 400px; min-width: 280px; }
+  .right-panel { flex: 1 1 440px; min-width: 300px; }
+
+  .results-box {
+    position: sticky; top: 16px;
+    background: #0d0d18; border: 1px solid #1a1a2e;
+    border-radius: 6px; padding: 20px;
+  }
+
+  /* Category buttons */
+  .cat-btn {
+    width: 100%; display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 12px; background: #0d0d15; border: 1px solid #1a1a2e;
+    border-radius: 4px; color: #a0a0b0; cursor: pointer; font-size: 11px;
+    font-family: inherit; letter-spacing: 0.06em; text-transform: uppercase;
+    transition: background 0.15s; margin-bottom: 2px;
+  }
+  .cat-btn:hover { background: #111120; }
+  .cat-btn.open { background: #111120; }
+
+  .cat-badge {
+    background: #E84855; color: #fff; border-radius: 10px;
+    padding: 1px 7px; font-size: 10px; font-weight: 700;
+  }
+
+  .cat-list {
+    padding: 4px 0; background: #0a0a12;
+    border-left: 1px solid #1a1a2e; border-right: 1px solid #1a1a2e;
+    border-bottom: 1px solid #1a1a2e; border-radius: 0 0 4px 4px;
+    display: none;
+  }
+  .cat-list.open { display: block; }
+
+  .sign-btn {
+    display: block; width: 100%; text-align: left; padding: 7px 14px;
+    background: transparent; border: none;
+    border-left: 3px solid transparent;
+    color: #888; cursor: pointer; font-size: 12px; font-family: inherit;
+    transition: all 0.1s; line-height: 1.4;
+  }
+  .sign-btn:hover { color: #bbb; }
+  .sign-btn.active {
+    background: #1a1a30; border-left-color: #E84855; color: #e0e0e8;
+  }
+  .sign-btn .dot { margin-right: 8px; opacity: 0.3; }
+  .sign-btn.active .dot { opacity: 1; }
+
+  .clear-btn {
+    margin-top: 12px; padding: 8px 16px; background: transparent;
+    border: 1px solid #333; border-radius: 4px; color: #666;
+    cursor: pointer; font-size: 11px; font-family: inherit; letter-spacing: 0.04em;
+  }
+  .clear-btn:hover { border-color: #555; color: #999; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 0; margin-bottom: 16px; border-bottom: 1px solid #1a1a2e; }
+  .tab-btn {
+    padding: 8px 16px; font-size: 10px; font-family: inherit;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    background: transparent; border: none; cursor: pointer;
+    color: #555; border-bottom: 2px solid transparent;
+  }
+  .tab-btn.active { color: #e0e0e8; }
+  .tab-btn.active.mech { border-bottom-color: #E84855; }
+  .tab-btn.active.drug { border-bottom-color: #F9A03F; }
+
+  /* Section label */
+  .section-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em;
+    color: #555; margin-bottom: 16px;
+  }
+  .section-label.small { color: #444; margin-bottom: 8px; }
+
+  /* Primary hypothesis box */
+  .primary-box {
+    padding: 12px 14px; background: #111125; border-radius: 4px;
+    margin-bottom: 16px; border-left: 3px solid;
+  }
+  .primary-box .label { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 0.06em; }
+  .primary-box .name { font-size: 16px; font-weight: 700; margin-top: 4px; }
+  .primary-box .desc { font-size: 11px; color: #888; margin-top: 2px; }
+
+  /* Score bars */
+  .score-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .score-label { width: 110px; font-size: 10px; text-align: right; flex-shrink: 0; letter-spacing: 0.02em; }
+  .score-track { flex: 1; height: 16px; background: #111; border-radius: 2px; overflow: hidden; position: relative; }
+  .score-bar { position: absolute; top: 0; height: 100%; border-radius: 2px; transition: width 0.3s ease; }
+  .score-val { width: 32px; font-size: 11px; text-align: right; flex-shrink: 0; }
+
+  /* Confidence note */
+  .confidence-note {
+    margin-top: 16px; padding: 10px 12px; background: #0a0a12;
+    border-radius: 4px; font-size: 10px; color: #555; line-height: 1.5;
+  }
+
+  /* Drug match */
+  .disclaimer {
+    padding: 10px 12px; background: #1a1210; border: 1px solid #3d2a1a;
+    border-radius: 4px; margin-bottom: 16px; font-size: 10px; color: #a08060; line-height: 1.5;
+  }
+  .uncertain {
+    padding: 20px 16px; background: #111118; border-radius: 4px; text-align: center;
+  }
+  .uncertain .title { font-size: 14px; color: #888; margin-bottom: 8px; }
+  .uncertain .desc { font-size: 11px; color: #555; line-height: 1.5; }
+
+  .drug-card {
+    padding: 12px 14px; background: #0e0e18; border: 1px solid #1a1a2e;
+    border-radius: 4px; border-left: 3px solid transparent; margin-bottom: 8px;
+  }
+  .drug-card.top { background: #111125; border-color: #2a2a44; border-left-color: #F9A03F; }
+  .drug-card .drug-header { display: flex; justify-content: space-between; align-items: baseline; }
+  .drug-card .drug-name { font-size: 13px; font-weight: 500; color: #c0c0cc; }
+  .drug-card.top .drug-name { font-weight: 700; color: #F9A03F; }
+  .drug-card .drug-class { font-size: 10px; color: #555; margin-left: 8px; }
+  .drug-card .drug-pct { font-size: 11px; font-weight: 700; }
+  .drug-card .match-track { height: 4px; background: #111; border-radius: 2px; margin-top: 8px; overflow: hidden; }
+  .drug-card .match-bar { height: 100%; border-radius: 2px; transition: width 0.3s ease; background: #555; }
+  .drug-card.top .match-bar { background: #F9A03F; }
+  .drug-card .drug-meta { display: flex; gap: 16px; margin-top: 8px; font-size: 10px; color: #666; flex-wrap: wrap; }
+  .drug-card .drug-notes { font-size: 10px; color: #555; margin-top: 6px; line-height: 1.5; font-style: italic; }
+
+  /* Chips */
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chip {
+    padding: 3px 8px; background: #1a1a2a; border-radius: 3px;
+    font-size: 10px; color: #999; cursor: pointer; border: 1px solid #222;
+    font-family: inherit;
+  }
+  .chip:hover { border-color: #444; color: #ccc; }
+
+  .empty-state { color: #444; font-size: 12px; line-height: 1.6; padding: 20px 0; }
+
+  .unexplained-note {
+    margin-top: 12px; padding: 10px 12px; background: #0a0a12;
+    border-radius: 4px; font-size: 10px; color: #555; line-height: 1.5;
+  }
+  .unexplained-note span { color: #777; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>Perturbation Framework</h1>
+    <p>Mechanism classifier — select observed signs below</p>
+  </div>
+
+  <div class="layout">
+    <div class="left-panel">
+      <div style="margin-bottom:12px">
+        <input id="signSearch" type="text" placeholder="Search signs, patterns, clues..." style="width:100%;padding:10px 12px;background:#0d0d18;border:1px solid #1a1a2e;border-radius:4px;color:#c8c8d0;font-family:inherit;font-size:12px;outline:none">
+      </div>
+      <div id="signPanel"></div>
+    </div>
+    <div class="right-panel">
+      <div class="results-box">
+        <div class="tabs">
+          <button class="tab-btn mech active" data-tab="mech">Mechanism Profile</button>
+          <button class="tab-btn drug" data-tab="drug">Drug Match</button>
+        </div>
+        <div id="mechTab"></div>
+        <div id="drugTab" style="display:none"></div>
+        <div id="chipsSection"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════
+// DATA
+// ════════════════════════════════════════════════════════════
+
+const MECHANISMS = {
+  sympathomimetic: { label: "Sympathomimetic", color: "#E84855", desc: "Adrenergic / Stimulant" },
+  dopaminergic: { label: "Dopaminergic", color: "#F9A03F", desc: "Reward / Drive" },
+  serotonergic: { label: "Serotonergic", color: "#7B2D8E", desc: "5-HT / Neuromuscular" },
+  opioid: { label: "Opioid", color: "#3185FC", desc: "\u03bc / \u03ba / \u03b4 Receptors" },
+  gabaergic: { label: "GABAergic", color: "#0B6E4F", desc: "Sedative-Hypnotic" },
+  anticholinergic: { label: "Anticholinergic", color: "#D4A03C", desc: "Muscarinic Blockade" },
+  cholinergic: { label: "Cholinergic", color: "#5B8C5A", desc: "ACh Excess" },
+  dissociative: { label: "Dissociative", color: "#1B98E0", desc: "NMDA Antagonist" },
+  cannabinoid: { label: "Cannabinoid", color: "#2D936C", desc: "CB1 / CB2" },
+  psychedelic: { label: "Psychedelic", color: "#9B5DE5", desc: "5-HT2A Agonist" },
+};
+
+const SIGNS = [
+  {id:"mydriasis",label:"Dilated pupils",category:"eyes",scores:{sympathomimetic:3,anticholinergic:3,psychedelic:3,serotonergic:2,opioid:-5,cholinergic:-3}},
+  {id:"miosis",label:"Pinpoint pupils",category:"eyes",scores:{opioid:5,cholinergic:4,sympathomimetic:-4,anticholinergic:-3,psychedelic:-3,dissociative:-2}},
+  {id:"nystagmus_awake",label:"Nystagmus (while awake)",category:"eyes",scores:{dissociative:5,gabaergic:2,cannabinoid:1}},
+  {id:"conjunctival",label:"Red eyes (conjunctival injection)",category:"eyes",scores:{cannabinoid:5}},
+  {id:"ocular_clonus",label:"Ocular clonus (slow drifting eyes)",category:"eyes",scores:{serotonergic:4}},
+  {id:"tachycardia",label:"Heart rate increased",category:"vitals",scores:{sympathomimetic:3,anticholinergic:2,dissociative:2,serotonergic:2,cannabinoid:2,opioid:-2}},
+  {id:"bradycardia",label:"Heart rate decreased",category:"vitals",scores:{opioid:1,cholinergic:3,sympathomimetic:-3}},
+  {id:"hypertension",label:"Blood pressure elevated",category:"vitals",scores:{sympathomimetic:3,dissociative:2,serotonergic:2,opioid:-2}},
+  {id:"hypotension_orthostatic",label:"Dizzy on standing (orthostatic)",category:"vitals",scores:{cannabinoid:3,opioid:1}},
+  {id:"bp_up_sedated",label:"BP elevated despite sedation",category:"vitals",scores:{dissociative:3,gabaergic:-3}},
+  {id:"resp_depression",label:"Breathing slow / shallow",category:"vitals",scores:{opioid:5,gabaergic:2,sympathomimetic:-3}},
+  {id:"hyperthermia",label:"Temperature elevated",category:"vitals",scores:{serotonergic:3,sympathomimetic:2,anticholinergic:2}},
+  {id:"diaphoresis",label:"Sweating (wet skin)",category:"skin",scores:{sympathomimetic:3,serotonergic:3,cholinergic:4,anticholinergic:-5}},
+  {id:"dry_skin",label:"Dry skin + dry armpits",category:"skin",scores:{anticholinergic:5,sympathomimetic:-3,cholinergic:-4,serotonergic:-2}},
+  {id:"flushed",label:"Flushed / red skin",category:"skin",scores:{anticholinergic:2,serotonergic:1}},
+  {id:"piloerection",label:"Goosebumps (piloerection)",category:"skin",scores:{sympathomimetic:2,psychedelic:2}},
+  {id:"clonus",label:"Clonus (rhythmic ankle bouncing)",category:"neuro",scores:{serotonergic:5,opioid:-3,gabaergic:-3,cannabinoid:-3}},
+  {id:"hyperreflexia",label:"Brisk reflexes",category:"neuro",scores:{serotonergic:4,sympathomimetic:1,gabaergic:-3}},
+  {id:"hyporeflexia",label:"Reduced reflexes",category:"neuro",scores:{gabaergic:3,opioid:2,serotonergic:-3,sympathomimetic:-2}},
+  {id:"ataxia",label:"Unsteady / uncoordinated",category:"neuro",scores:{gabaergic:4,dissociative:3}},
+  {id:"rigidity_waxy",label:"Muscular rigidity (waxy / cataleptic)",category:"neuro",scores:{dissociative:3,gabaergic:-2}},
+  {id:"fasciculations",label:"Muscle twitching (fasciculations)",category:"neuro",scores:{cholinergic:4,anticholinergic:-3}},
+  {id:"tremor",label:"Tremor",category:"neuro",scores:{serotonergic:3,sympathomimetic:2}},
+  {id:"myoclonus",label:"Involuntary jerks (myoclonus)",category:"neuro",scores:{serotonergic:3}},
+  {id:"slurred_speech",label:"Slurred speech",category:"behavior",scores:{gabaergic:4,psychedelic:-2}},
+  {id:"rapid_speech",label:"Rapid / pressured speech",category:"behavior",scores:{sympathomimetic:1,dopaminergic:1}},
+  {id:"sedation",label:"Drowsy / sedated",category:"behavior",scores:{opioid:3,gabaergic:3,sympathomimetic:-3}},
+  {id:"agitation",label:"Agitated / restless",category:"behavior",scores:{sympathomimetic:2,serotonergic:2,anticholinergic:3,opioid:-3}},
+  {id:"euphoria",label:"Euphoria / reward feeling",category:"behavior",scores:{dopaminergic:2,opioid:2,cannabinoid:2}},
+  {id:"dissociation_feeling",label:"Feeling disconnected / not in body",category:"behavior",scores:{dissociative:4,psychedelic:3}},
+  {id:"visual_distortions",label:"Visual distortions / patterns",category:"behavior",scores:{psychedelic:4,dissociative:2}},
+  {id:"synesthesia",label:"Synesthesia (mixing senses)",category:"behavior",scores:{psychedelic:3}},
+  {id:"amnesia",label:"Can't form new memories",category:"behavior",scores:{gabaergic:3,dissociative:3,anticholinergic:2}},
+  {id:"confusion_delirium",label:"Confusion / delirium",category:"behavior",scores:{anticholinergic:3,dissociative:2}},
+  {id:"hallucinations_picking",label:'Hallucinations ("picking at things")',category:"behavior",scores:{anticholinergic:3}},
+  {id:"lucid_despite_intensity",label:"Lucid despite intense experience",category:"behavior",scores:{psychedelic:2,dissociative:-2}},
+  {id:"stereotypy",label:"Repetitive / stereotyped behavior",category:"behavior",scores:{dopaminergic:3}},
+  {id:"motivation_drive",label:"Increased motivation / drive",category:"behavior",scores:{dopaminergic:2,sympathomimetic:2,opioid:-2}},
+  {id:"dry_mouth",label:"Dry mouth",category:"other",scores:{anticholinergic:4,sympathomimetic:1,cannabinoid:2,cholinergic:-4,serotonergic:-2}},
+  {id:"salivation_excess",label:"Excessive salivation / drooling",category:"other",scores:{cholinergic:4,dissociative:2,anticholinergic:-3}},
+  {id:"bowels_hyperactive",label:"Gut gurgling / diarrhea",category:"other",scores:{serotonergic:3,cholinergic:3,anticholinergic:-3,opioid:-2}},
+  {id:"bowels_quiet",label:"Quiet gut / constipation",category:"other",scores:{anticholinergic:3,opioid:2,cholinergic:-3,serotonergic:-2}},
+  {id:"analgesia",label:"Pain reduced / numb",category:"other",scores:{opioid:3,dissociative:3}},
+  {id:"appetite_increased",label:"Hungry / increased appetite",category:"other",scores:{cannabinoid:3,sympathomimetic:-2}},
+  {id:"appetite_decreased",label:"Not hungry / appetite gone",category:"other",scores:{sympathomimetic:2}},
+  {id:"nausea",label:"Nausea",category:"other",scores:{opioid:2,serotonergic:1,psychedelic:2}},
+  {id:"itching_face",label:"Itching (especially nose / face)",category:"other",scores:{opioid:2}},
+  {id:"bruxism",label:"Jaw clenching / grinding",category:"other",scores:{sympathomimetic:2,dopaminergic:2}},
+  {id:"urinary_retention",label:"Difficulty urinating",category:"other",scores:{anticholinergic:3}},
+  {id:"lacrimation",label:"Tearing / watery eyes",category:"other",scores:{cholinergic:3,anticholinergic:-2}},
+  {id:"bronchorrhea",label:"Wheezing / bronchial secretions",category:"other",scores:{cholinergic:4}},
+  {id:"libido_up",label:"Increased libido",category:"other",scores:{dopaminergic:2,sympathomimetic:1}},
+];
+
+const DRUGS = [
+  {id:"amphetamine",name:"Amphetamine",class:"Stimulant",duration:"4\u20138 hrs (oral)",onset:"20\u201360 min",expected:{mydriasis:3,tachycardia:3,hypertension:3,diaphoresis:3,appetite_decreased:2,motivation_drive:3,euphoria:2,rapid_speech:2,bruxism:2,dry_mouth:2,tremor:1,piloerection:1,libido_up:2,agitation:1,hyperthermia:1},contraindicated:["miosis","sedation","resp_depression","hyporeflexia","ataxia","slurred_speech","dry_skin"],notes:"Smooth sustained curve. Strong dopaminergic + adrenergic. Dry mouth is common. Less peripheral than meth."},
+  {id:"methamphetamine",name:"Methamphetamine",class:"Stimulant",duration:"8\u201312+ hrs",onset:"20\u201360 min",expected:{mydriasis:3,tachycardia:3,hypertension:3,diaphoresis:3,appetite_decreased:3,motivation_drive:3,euphoria:3,rapid_speech:2,bruxism:3,dry_mouth:2,tremor:2,piloerection:2,libido_up:2,agitation:2,hyperthermia:2,stereotypy:2},contraindicated:["miosis","sedation","resp_depression","hyporeflexia","ataxia","slurred_speech","dry_skin"],notes:"Longer and more intense than amphetamine. Dry mouth very common. More neurotoxic profile. Stereotypy more prominent."},
+  {id:"cocaine",name:"Cocaine",class:"Stimulant",duration:"30\u201390 min (snorted)",onset:"Seconds (smoked/IV), 2\u20135 min (snorted)",expected:{mydriasis:3,tachycardia:3,hypertension:3,diaphoresis:2,euphoria:3,rapid_speech:2,agitation:2,dry_mouth:1,hyperthermia:1,motivation_drive:2,appetite_decreased:1,bruxism:1},contraindicated:["miosis","sedation","resp_depression","hyporeflexia","ataxia","slurred_speech"],notes:"SHORT duration is the key differentiator. Sharp spike and crash. Local anesthetic properties."},
+  {id:"methylphenidate",name:"Methylphenidate (Ritalin)",class:"Stimulant",duration:"3\u20136 hrs",onset:"20\u201340 min",expected:{tachycardia:2,hypertension:2,mydriasis:1,motivation_drive:3,appetite_decreased:2,dry_mouth:1,euphoria:1},contraindicated:["miosis","sedation","resp_depression","ataxia","slurred_speech"],notes:"Weaker peripheral signs than amphetamine. More purely cognitive. Less euphoria at therapeutic doses."},
+  {id:"mdma",name:"MDMA (Ecstasy)",class:"Stimulant / Empathogen",duration:"3\u20135 hrs",onset:"30\u201360 min",expected:{mydriasis:3,tachycardia:3,hypertension:2,diaphoresis:3,euphoria:3,bruxism:3,hyperthermia:2,dry_mouth:2,tremor:1,libido_up:1,hyperreflexia:2,nausea:1,piloerection:2},contraindicated:["miosis","sedation","resp_depression","dry_skin","bowels_quiet"],notes:"Serotonin + dopamine + NE releaser. Empathogenic warmth. Dry mouth prominent. Risk of serotonin toxicity. Bruxism very prominent."},
+  {id:"cathinones",name:"Cathinones (Bath salts)",class:"Stimulant",duration:"2\u20135 hrs",onset:"15\u201345 min",expected:{mydriasis:3,tachycardia:3,hypertension:3,diaphoresis:3,agitation:3,euphoria:2,bruxism:2,hyperthermia:2,motivation_drive:2,tremor:2,stereotypy:2,dry_mouth:1,confusion_delirium:1},contraindicated:["miosis","sedation","resp_depression","hyporeflexia","dry_skin"],notes:"Often more agitation and paranoia than classical amphetamines. Variable serotonergic component."},
+  {id:"heroin",name:"Heroin (Diacetylmorphine)",class:"Opioid",duration:"3\u20135 hrs",onset:"Seconds (IV), minutes (smoked/snorted)",expected:{miosis:3,resp_depression:3,sedation:3,euphoria:3,analgesia:3,itching_face:3,nausea:2,bradycardia:1,bowels_quiet:1,hypotension_orthostatic:1},contraindicated:["mydriasis","tachycardia","hypertension","agitation","hyperreflexia","diaphoresis"],notes:"Classic rush \u2192 nod. Strong histamine release = itching + flushing. Fast onset IV/smoked."},
+  {id:"morphine",name:"Morphine",class:"Opioid",duration:"3\u20136 hrs",onset:"15\u201330 min (oral), minutes (IV)",expected:{miosis:3,resp_depression:3,sedation:3,euphoria:2,analgesia:3,itching_face:3,nausea:2,bradycardia:1,bowels_quiet:2,hypotension_orthostatic:2},contraindicated:["mydriasis","tachycardia","hypertension","agitation","hyperreflexia","diaphoresis"],notes:"Heavy histamine release. More hypotension and itching than synthetic opioids."},
+  {id:"oxycodone",name:"Oxycodone",class:"Opioid",duration:"4\u20136 hrs (IR)",onset:"15\u201330 min",expected:{miosis:3,resp_depression:3,sedation:2,euphoria:2,analgesia:3,nausea:2,bowels_quiet:2,bradycardia:1},contraindicated:["mydriasis","tachycardia","hypertension","agitation","hyperreflexia","diaphoresis"],notes:"Cleaner profile than morphine. Less itching/histamine. Smooth oral curve."},
+  {id:"fentanyl",name:"Fentanyl",class:"Opioid",duration:"30\u201390 min (IV/transmucosal)",onset:"Seconds (IV), 5\u201315 min (transmucosal)",expected:{miosis:3,resp_depression:3,sedation:3,analgesia:3,euphoria:2,bradycardia:2,bowels_quiet:1},contraindicated:["mydriasis","tachycardia","hypertension","agitation","hyperreflexia","diaphoresis"],notes:"VERY short duration, VERY fast onset. Spike profile. Less histamine than morphine. Extreme respiratory depression risk."},
+  {id:"methadone",name:"Methadone",class:"Opioid",duration:"24\u201336+ hrs",onset:"1\u20132 hrs",expected:{miosis:3,resp_depression:2,sedation:2,analgesia:3,euphoria:1,bowels_quiet:2,bradycardia:1,diaphoresis:1},contraindicated:["mydriasis","agitation","hyperreflexia"],notes:"VERY long duration is the key. Slow onset. Flat plateau. Some sweating (unusual for opioids). QT prolongation risk."},
+  {id:"tramadol",name:"Tramadol",class:"Opioid (Mixed)",duration:"4\u20136 hrs",onset:"30\u201360 min",expected:{analgesia:2,sedation:1,euphoria:1,nausea:2,diaphoresis:1,tachycardia:1,tremor:1,bowels_quiet:1},contraindicated:["mydriasis"],notes:"Mixed mechanism: weak \u03bc agonist + SNRI. May NOT cause miosis. Seizure risk. Serotonin toxicity risk in combination."},
+  {id:"kratom",name:"Kratom (Mitragynine)",class:"Opioid-like",duration:"3\u20136 hrs",onset:"15\u201330 min",expected:{miosis:2,analgesia:2,euphoria:2,nausea:2,sedation:1,motivation_drive:1,bowels_quiet:1},contraindicated:["mydriasis","resp_depression","hyperreflexia"],notes:"Low dose: stimulant-like. High dose: opioid-like. Partial \u03bc agonism. Less respiratory depression than classical opioids."},
+  {id:"alprazolam",name:"Alprazolam (Xanax)",class:"Benzodiazepine",duration:"4\u20136 hrs",onset:"15\u201330 min",expected:{sedation:3,ataxia:3,slurred_speech:3,amnesia:3,hyporeflexia:2,euphoria:1},contraindicated:["mydriasis","hyperreflexia","clonus","tachycardia","hypertension","diaphoresis"],notes:"High potency, short-acting. Notable euphoria/reward compared to other benzos. Steep dose-response."},
+  {id:"diazepam",name:"Diazepam (Valium)",class:"Benzodiazepine",duration:"6\u201312 hrs (active metabolites much longer)",onset:"15\u201345 min",expected:{sedation:2,ataxia:3,slurred_speech:3,amnesia:2,hyporeflexia:3},contraindicated:["mydriasis","hyperreflexia","clonus","tachycardia","hypertension","diaphoresis"],notes:"Fast onset (lipophilic). Active metabolite nordiazepam extends duration to days. Strong muscle relaxation."},
+  {id:"clonazepam",name:"Clonazepam (Klonopin)",class:"Benzodiazepine",duration:"8\u201312 hrs",onset:"30\u201360 min",expected:{sedation:2,ataxia:2,slurred_speech:2,amnesia:2,hyporeflexia:2},contraindicated:["mydriasis","hyperreflexia","clonus","tachycardia","hypertension","diaphoresis"],notes:"Slower onset, longer duration than alprazolam. Less euphoria. Smoother profile."},
+  {id:"ethanol",name:"Ethanol (Alcohol)",class:"GABAergic / Multi",duration:"2\u20136 hrs (dose dependent)",onset:"15\u201330 min",expected:{ataxia:3,slurred_speech:3,sedation:2,amnesia:2,hyporeflexia:2,nystagmus_awake:1,flushed:2,nausea:2,euphoria:1},contraindicated:["mydriasis","hyperreflexia","clonus","hypertension"],notes:"Ataxia appears before sedation. Facial flushing. GI irritation. Smell on breath. Nystagmus at moderate doses."},
+  {id:"ghb",name:"GHB / GBL",class:"GABAergic (GABA-B)",duration:"1\u20133 hrs",onset:"15\u201330 min",expected:{sedation:3,euphoria:2,ataxia:2,slurred_speech:2,bradycardia:2,amnesia:2,hyporeflexia:2,myoclonus:1,nausea:1},contraindicated:["mydriasis","hyperreflexia","clonus","tachycardia","hypertension"],notes:"VERY steep dose-response. Short duration with abrupt awakening. Bradycardia prominent. Myoclonic jerks in deep sedation."},
+  {id:"phenobarbital",name:"Phenobarbital",class:"Barbiturate",duration:"8\u201312 hrs",onset:"30\u201360 min (oral)",expected:{sedation:3,ataxia:3,slurred_speech:3,resp_depression:3,hyporeflexia:3,amnesia:2,nystagmus_awake:2},contraindicated:["mydriasis","hyperreflexia","clonus","tachycardia","hypertension"],notes:"More respiratory depression than benzos. Narrow therapeutic window. Long duration."},
+  {id:"pregabalin",name:"Pregabalin (Lyrica)",class:"Gabapentinoid",duration:"5\u20138 hrs",onset:"30\u201360 min",expected:{sedation:2,ataxia:2,euphoria:2,slurred_speech:1,hyporeflexia:1,myoclonus:1},contraindicated:["mydriasis","hyperreflexia","clonus","hypertension"],notes:"Lighter GABAergic feel. Notable euphoria at higher doses. Dizziness prominent."},
+  {id:"diphenhydramine",name:"Diphenhydramine (Benadryl)",class:"Anticholinergic / Antihistamine",duration:"4\u20138 hrs",onset:"20\u201345 min",expected:{dry_mouth:3,dry_skin:3,mydriasis:3,tachycardia:2,sedation:2,confusion_delirium:2,urinary_retention:2,bowels_quiet:2,flushed:1,hyperthermia:1,hallucinations_picking:2,amnesia:2},contraindicated:["miosis","diaphoresis","bowels_hyperactive","lacrimation","salivation_excess"],notes:"At high doses: classic anticholinergic delirium with visual hallucinations. Sedation prominent due to H1 blockade."},
+  {id:"scopolamine",name:"Scopolamine",class:"Anticholinergic",duration:"4\u20138 hrs",onset:"30\u201360 min",expected:{dry_mouth:3,dry_skin:3,mydriasis:3,tachycardia:2,confusion_delirium:3,amnesia:3,hallucinations_picking:2,sedation:2,urinary_retention:2,bowels_quiet:2},contraindicated:["miosis","diaphoresis","bowels_hyperactive","lacrimation","salivation_excess"],notes:"Stronger central effects than atropine. Amnesia very prominent."},
+  {id:"datura",name:"Datura / Jimson weed",class:"Anticholinergic (Plant)",duration:"12\u201348 hrs (!)",onset:"30\u2013120 min",expected:{dry_mouth:3,dry_skin:3,mydriasis:3,tachycardia:3,confusion_delirium:3,hallucinations_picking:3,hyperthermia:3,flushed:2,urinary_retention:3,bowels_quiet:3,amnesia:3,agitation:3},contraindicated:["miosis","diaphoresis","bowels_hyperactive","lacrimation","salivation_excess"],notes:"EXTREMELY long duration. Full-blown anticholinergic delirium. Dangerous."},
+  {id:"ketamine",name:"Ketamine",class:"Dissociative",duration:"45 min \u2013 2 hrs",onset:"Seconds (IV/IM), 5\u201320 min (snorted)",expected:{nystagmus_awake:3,dissociation_feeling:3,analgesia:3,bp_up_sedated:3,tachycardia:2,hypertension:2,ataxia:3,amnesia:3,salivation_excess:2,mydriasis:1,visual_distortions:1,sedation:2},contraindicated:["miosis","hyporeflexia","resp_depression","bowels_quiet"],notes:"Short duration. Preserved airway reflexes. 'K-hole' at high doses. Emergence phenomena. Excess salivation."},
+  {id:"pcp",name:"PCP (Phencyclidine)",class:"Dissociative",duration:"4\u201324 hrs",onset:"2\u20135 min (smoked)",expected:{nystagmus_awake:3,dissociation_feeling:3,analgesia:3,bp_up_sedated:3,tachycardia:2,hypertension:3,agitation:3,rigidity_waxy:3,mydriasis:2,amnesia:3,confusion_delirium:2},contraindicated:["miosis","hyporeflexia","resp_depression"],notes:"MUCH longer than ketamine. More aggression/violence. Psychotic aftermath possible. Blank stare. Catalepsy."},
+  {id:"dxm",name:"DXM (Dextromethorphan)",class:"Dissociative",duration:"4\u20138 hrs",onset:"30\u201360 min",expected:{nystagmus_awake:2,dissociation_feeling:2,ataxia:3,tachycardia:2,hypertension:1,mydriasis:2,diaphoresis:1,nausea:2,euphoria:1,sedation:1},contraindicated:["miosis","resp_depression"],notes:"Weaker dissociation than ketamine. Dose-dependent plateaus. Serotonergic component \u2014 interaction risk with SSRIs."},
+  {id:"thc_smoked",name:"THC (Cannabis, smoked)",class:"Cannabinoid",duration:"2\u20134 hrs",onset:"Minutes",expected:{conjunctival:3,tachycardia:2,hypotension_orthostatic:3,appetite_increased:3,dry_mouth:2,euphoria:2,sedation:1},contraindicated:["miosis","hyperreflexia","clonus","resp_depression","diaphoresis"],notes:"Red eyes are the giveaway. Biphasic cardiovascular: tachycardia then parasympathetic. Time distortion."},
+  {id:"thc_edible",name:"THC (Cannabis, edible)",class:"Cannabinoid",duration:"4\u20138 hrs",onset:"45\u2013120 min (!)",expected:{conjunctival:3,hypotension_orthostatic:3,appetite_increased:3,dry_mouth:3,euphoria:2,sedation:2,tachycardia:2,nausea:1},contraindicated:["miosis","hyperreflexia","clonus","resp_depression","diaphoresis"],notes:"DELAYED onset (people often re-dose too early). Longer and stronger than smoked. More body-heavy."},
+  {id:"synthetic_cannabinoid",name:"Synthetic Cannabinoid (Spice/K2)",class:"Cannabinoid (Synthetic)",duration:"1\u20136 hrs (variable)",onset:"Minutes",expected:{conjunctival:2,tachycardia:3,agitation:3,mydriasis:2,hyperthermia:2,confusion_delirium:2,nausea:2,tremor:1},contraindicated:["miosis"],notes:"Full CB1 agonist (vs THC partial). MUCH more dangerous. Seizures, psychosis, rhabdomyolysis possible."},
+  {id:"lsd",name:"LSD",class:"Psychedelic",duration:"8\u201312 hrs",onset:"20\u201345 min",expected:{mydriasis:3,visual_distortions:3,synesthesia:2,lucid_despite_intensity:2,piloerection:1,tachycardia:1,hypertension:1,dissociation_feeling:1,nausea:1,bruxism:1},contraindicated:["miosis","sedation","ataxia","slurred_speech","clonus","resp_depression"],notes:"LONG duration is key differentiator from psilocybin. Minimal physiological disruption. Stimulant undertone."},
+  {id:"psilocybin",name:"Psilocybin (Mushrooms)",class:"Psychedelic",duration:"4\u20136 hrs",onset:"20\u201340 min",expected:{mydriasis:3,visual_distortions:3,synesthesia:2,lucid_despite_intensity:2,nausea:2,piloerection:2,dissociation_feeling:1,tachycardia:1},contraindicated:["miosis","sedation","ataxia","slurred_speech","clonus","resp_depression"],notes:"Shorter than LSD. More body load. Nausea at onset common. Warmer / more emotional character."},
+  {id:"mescaline",name:"Mescaline (Peyote/San Pedro)",class:"Psychedelic",duration:"8\u201312 hrs",onset:"45\u2013120 min",expected:{mydriasis:3,visual_distortions:3,nausea:3,piloerection:2,tachycardia:1,hypertension:1,bruxism:1,diaphoresis:1,lucid_despite_intensity:2},contraindicated:["miosis","sedation","ataxia","slurred_speech","clonus","resp_depression"],notes:"Phenethylamine psychedelic. Strong nausea at onset. Long duration. More body stimulation than tryptamines."},
+  {id:"dmt",name:"DMT (smoked/vaped)",class:"Psychedelic",duration:"10\u201320 min (!)",onset:"Seconds",expected:{mydriasis:3,visual_distortions:3,dissociation_feeling:3,tachycardia:2,hypertension:2,piloerection:1},contraindicated:["miosis","sedation","ataxia","slurred_speech","clonus","resp_depression"],notes:"EXTREMELY short. Intense. Near-complete immersion. Full return to baseline within 30 min."},
+  {id:"nbome",name:"NBOMe (25I, 25C, etc.)",class:"Psychedelic (Phenethylamine)",duration:"6\u201310 hrs",onset:"15\u201345 min (sublingual)",expected:{mydriasis:3,visual_distortions:3,tachycardia:3,hypertension:3,hyperthermia:2,bruxism:2,agitation:2,diaphoresis:2,tremor:1},contraindicated:["miosis","sedation","resp_depression"],notes:"Dangerous. Significant sympathomimetic effects unlike classical psychedelics. Bitter/metallic taste. Seizure and death risk."},
+  {id:"ssri_overdose",name:"SSRI (Overdose)",class:"Serotonergic",duration:"12\u201324 hrs",onset:"1\u20136 hrs",expected:{tremor:3,hyperreflexia:3,clonus:3,diaphoresis:3,tachycardia:2,hypertension:2,mydriasis:2,hyperthermia:2,agitation:2,bowels_hyperactive:2,myoclonus:2,nausea:2,ocular_clonus:2},contraindicated:["miosis","dry_skin","bowels_quiet","hyporeflexia","sedation"],notes:"Serotonin toxicity pattern. Clonus is the hallmark. Usually requires combination or overdose."},
+  {id:"ghb",name:"GHB / GBL",class:"Sedative-Hypnotic",duration:"1.5-4 hrs",onset:"10-30 min",expected:{sedation:3,amnesia:2,slurred_speech:2,ataxia:2,hyporeflexia:1,bradycardia:1,nausea:1},contraindicated:["mydriasis","hypertension","hyperreflexia","clonus","dry_skin"],notes:"Rapid sedation with short duration. Can swing from deep sedation back to near-normal quickly."},
+  {id:"pregabalin",name:"Pregabalin / Gabapentinoid",class:"Sedative-Hypnotic",duration:"6-10 hrs",onset:"30-90 min",expected:{sedation:2,ataxia:3,slurred_speech:2,hyporeflexia:2,euphoria:1,amnesia:1,nystagmus_awake:1,myoclonus:1},contraindicated:["mydriasis","hypertension","hyperreflexia","clonus"],notes:"Often gives drunken incoordination more than classic benzo calm. Can potentiate other depressants."},
+  {id:"xylazine",name:"Xylazine",class:"Alpha-2 Sedative",duration:"2-8 hrs",onset:"Minutes",expected:{sedation:3,miosis:2,bradycardia:3,hypotension_orthostatic:2,resp_depression:2,analgesia:2},contraindicated:["mydriasis","hypertension","hyperreflexia","clonus","diaphoresis"],notes:"Sedative profile that can mimic opioids but often with more bradycardia and hypotension."},
+  {id:"clonidine",name:"Clonidine / Alpha-2 agonist",class:"Alpha-2 Sedative",duration:"6-12 hrs",onset:"30-90 min",expected:{sedation:3,miosis:2,bradycardia:3,hypotension_orthostatic:2,resp_depression:1,dry_mouth:1},contraindicated:["mydriasis","hypertension","hyperreflexia","clonus","diaphoresis"],notes:"Can look surprisingly opioid-like, especially with miosis and sedation, but without the same euphoria pattern."},
+  {id:"tramadol",name:"Tramadol",class:"Atypical Opioid / Serotonergic",duration:"4-8 hrs",onset:"30-60 min",expected:{miosis:2,sedation:1,nausea:2,analgesia:2,tremor:1,diaphoresis:1,hyperreflexia:1,mydriasis:1},contraindicated:["dry_skin","bowels_quiet"],notes:"Mixed profile. Can look partly opioid and partly serotonergic, especially in higher doses or combinations."},
+  {id:"kratom",name:"Kratom",class:"Atypical Opioid-like",duration:"3-6 hrs",onset:"15-45 min",expected:{miosis:2,nausea:2,analgesia:1,euphoria:1,sedation:1,tachycardia:1,bowels_quiet:1},contraindicated:["hyperreflexia","clonus","dry_skin"],notes:"Dose-dependent: lower doses can feel more stimulating, higher doses more opioid-like."},
+  {id:"nitazene",name:"Nitazene-class opioid",class:"Opioid",duration:"Variable",onset:"Minutes",expected:{miosis:3,resp_depression:3,sedation:3,analgesia:3,bradycardia:1,bowels_quiet:1},contraindicated:["mydriasis","hypertension","hyperreflexia","clonus"],notes:"Very potent opioid pattern. Severe respiratory depression can dominate the picture fast."},
+  {id:"organophosphate",name:"Organophosphate (Pesticide)",class:"Cholinergic",duration:"Hours to days",onset:"Minutes to hours",expected:{miosis:3,salivation_excess:3,diaphoresis:3,lacrimation:3,bowels_hyperactive:3,bronchorrhea:3,bradycardia:3,fasciculations:3,nausea:2},contraindicated:["mydriasis","dry_skin","dry_mouth","bowels_quiet","tachycardia"],notes:"SLUDGE mnemonic. Life-threatening from respiratory secretions + muscle weakness. Treat with atropine + pralidoxime."},
+];
+
+const CATEGORIES = {eyes:"Eyes",vitals:"Vitals",skin:"Skin",neuro:"Neuromuscular",behavior:"Mental / Behavioral",other:"Other Signs"};
+
+// ════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════
+
+const selected = new Set();
+const openCats = new Set(["eyes","vitals"]);
+let activeTab = "mech";
+let signSearch = "";
+
+// ════════════════════════════════════════════════════════════
+// LOGIC
+// ════════════════════════════════════════════════════════════
+
+function getSign(sid) {
+  return SIGNS.find(x => x.id === sid);
+}
+
+function getHallmarksForDrug(drug) {
+  return Object.entries(drug.expected)
+    .filter(([_, w]) => w >= 3)
+    .map(([sid]) => sid);
+}
+
+function calcMechScores() {
+  const rows = Object.keys(MECHANISMS).map(mid => {
+    const supporting = [];
+    const conflicting = [];
+    let score = 0;
+    selected.forEach(sid => {
+      const s = getSign(sid);
+      if (!s || !(mid in s.scores)) return;
+      const w = s.scores[mid];
+      score += w;
+      if (w > 0) supporting.push({sid, w, label: s.label});
+      if (w < 0) conflicting.push({sid, w, label: s.label});
+    });
+    supporting.sort((a,b) => b.w - a.w);
+    conflicting.sort((a,b) => a.w - b.w);
+    const positive = supporting.reduce((n, x) => n + x.w, 0);
+    const negative = conflicting.reduce((n, x) => n + Math.abs(x.w), 0);
+    const net = score;
+    const confidence = positive <= 0 ? 0 : positive / Math.max(positive + negative, 1);
+    return {mid, score, net, positive, negative, confidence, supporting, conflicting};
+  });
+  return rows.sort((a,b) => b.score - a.score);
+}
+
+function detectRedFlags() {
+  const flags = [];
+  const has = sid => selected.has(sid);
+  if (has("resp_depression") && has("sedation")) {
+    flags.push("Respiratory depression + sedation is a major danger pattern.");
+  }
+  if (has("hyperthermia") && (has("clonus") || has("hyperreflexia") || has("myoclonus"))) {
+    flags.push("Hyperthermia + clonus/hyperreflexia can indicate severe serotonergic toxicity.");
+  }
+  if (has("bronchorrhea") || (has("salivation_excess") && has("bradycardia") && has("miosis"))) {
+    flags.push("Secretions + cholinergic features can become life-threatening quickly.");
+  }
+  if (has("hyperthermia") && has("agitation") && has("diaphoresis")) {
+    flags.push("Hyperthermia + agitation + diaphoresis can represent a dangerous stimulant or mixed toxic state.");
+  }
+  return flags;
+}
+
+function matchDrugs() {
+  if (selected.size === 0) return [];
+  const arr = Array.from(selected);
+  return DRUGS.map(drug => {
+    let matchedWeight = 0, maxPossible = 0, matchedSigns = 0, contradictions = 0;
+    const totalExpected = Object.keys(drug.expected).length;
+    const supported = [];
+    const conflicts = [];
+    Object.entries(drug.expected).forEach(([sid, w]) => {
+      maxPossible += w;
+      if (selected.has(sid)) {
+        matchedWeight += w;
+        matchedSigns++;
+        const s = getSign(sid);
+        supported.push({sid, w, label: s ? s.label : sid});
+      }
+    });
+    drug.contraindicated.forEach(sid => {
+      if (selected.has(sid)) {
+        contradictions++;
+        const s = getSign(sid);
+        conflicts.push({sid, label: s ? s.label : sid});
+      }
+    });
+    const hallmarks = getHallmarksForDrug(drug);
+    const matchedHallmarks = hallmarks.filter(sid => selected.has(sid));
+    const hallmarkRate = hallmarks.length ? matchedHallmarks.length / hallmarks.length : 0;
+    const selectedRelevance = arr.filter(s => s in drug.expected).length / Math.max(arr.length, 1);
+    const unexplainedIds = arr.filter(s => !(s in drug.expected) && !drug.contraindicated.includes(s));
+    const unexplained = unexplainedIds.length;
+    const coverage = maxPossible > 0 ? matchedWeight / maxPossible : 0;
+    const completeness = totalExpected > 0 ? matchedSigns / totalExpected : 0;
+    const contradictionPenalty = contradictions * 0.22;
+    const unexplainedPenalty = Math.min(unexplained * 0.04, 0.24);
+    const score01 = Math.max(
+      0,
+      (coverage * 0.45) +
+      (selectedRelevance * 0.2) +
+      (hallmarkRate * 0.25) +
+      (completeness * 0.1) -
+      contradictionPenalty -
+      unexplainedPenalty
+    );
+    const composite = (score01 * 100) + (matchedWeight * 0.6) - (contradictions * 8) - (unexplained * 1.5);
+    return {
+      ...drug,
+      matchedWeight,
+      maxPossible,
+      matchedSigns,
+      contradictions,
+      coverage: score01,
+      rawCoverage: coverage,
+      selectedRelevance,
+      completeness,
+      hallmarkRate,
+      hallmarks,
+      matchedHallmarks,
+      supported,
+      conflicts,
+      unexplainedIds,
+      composite,
+      totalExpected
+    };
+  }).filter(d => d.composite > 8).sort((a,b) => b.composite - a.composite);
+}
+
+function confidenceLabel(s) {
+  if (s >= 0.85) return "Very high";
+  if (s >= 0.65) return "High";
+  if (s >= 0.4) return "Moderate";
+  if (s > 0) return "Low";
+  return "Against";
+}
+
+function mechanismPatternNote(sorted) {
+  if (sorted.length < 2 || selected.size === 0) return "";
+  const top = sorted[0];
+  const second = sorted[1];
+  if (top.score <= 0) return "No mechanism is strongly supported yet. Add more discriminating signs.";
+  const gap = top.score - second.score;
+  if (gap <= 2 && second.score > 0) {
+    return `Mixed or ambiguous profile - ${MECHANISMS[top.mid].label} and ${MECHANISMS[second.mid].label} are close.`;
+  }
+  if (top.confidence < 0.6) {
+    return "Pattern is forming, but there is meaningful conflicting evidence.";
+  }
+  return "Pattern coherence is good. Hallmark signs and contradictions are the main tie-breakers.";
+}
+
+// ════════════════════════════════════════════════════════════
+// RENDER
+// ════════════════════════════════════════════════════════════
+
+function render() {
+  renderSigns();
+  renderResults();
+}
+
+function renderSigns() {
+  const panel = document.getElementById("signPanel");
+  const query = signSearch.trim().toLowerCase();
+  let html = "";
+  Object.entries(CATEGORIES).forEach(([catId, catLabel]) => {
+    const isOpen = openCats.has(catId);
+    const rawSigns = SIGNS.filter(s => s.category === catId);
+    const catSigns = query
+      ? rawSigns.filter(s => s.label.toLowerCase().includes(query) || s.id.toLowerCase().includes(query))
+      : rawSigns;
+    if (!catSigns.length) return;
+    const active = rawSigns.filter(s => selected.has(s.id)).length;
+    html += `<button class="cat-btn ${isOpen?"open":""}" onclick="toggleCat('${catId}')">
+      <span>${isOpen?"▾":"▸"} ${catLabel}</span>
+      ${active > 0 ? `<span class="cat-badge">${active}</span>` : ""}
+    </button>`;
+    html += `<div class="cat-list ${isOpen?"open":""}">`;
+    catSigns.forEach(s => {
+      const a = selected.has(s.id);
+      html += `<button class="sign-btn ${a?"active":""}" onclick="toggleSign('${s.id}')">
+        <span class="dot">${a?"●":"○"}</span>${s.label}
+      </button>`;
+    });
+    html += `</div>`;
+  });
+  if (!html) {
+    html = `<div class="empty-state">No signs matched your search.</div>`;
+  }
+  if (selected.size > 0) {
+    html += `<button class="clear-btn" onclick="clearAll()">Clear all (${selected.size} selected)</button>`;
+  }
+  panel.innerHTML = html;
+}
+
+function renderResults() {
+  const sorted = calcMechScores();
+  const maxScore = Math.max(...sorted.map(s => s.score), 1);
+  const minScore = Math.min(...sorted.map(s => s.score), 0);
+  const has = selected.size > 0;
+  const redFlags = detectRedFlags();
+
+  document.querySelectorAll(".tab-btn").forEach(b => {
+    b.classList.toggle("active", b.dataset.tab === activeTab);
+  });
+
+  const drugMatches = matchDrugs();
+  const drugBtn = document.querySelector('.tab-btn.drug');
+  drugBtn.textContent = "Drug Match" + (drugMatches.length > 0 ? ` (${drugMatches.length})` : "");
+
+  document.getElementById("mechTab").style.display = activeTab === "mech" ? "block" : "none";
+  document.getElementById("drugTab").style.display = activeTab === "drug" ? "block" : "none";
+
+  let mhtml = "";
+  if (!has) {
+    mhtml = `<div class="empty-state">Select observed signs from the left panel. The scoring engine will weigh supporting and conflicting evidence for each mechanism and show the best-fitting patterns here.</div>`;
+  } else {
+    const primary = sorted[0];
+    if (redFlags.length) {
+      mhtml += `<div class="disclaimer" style="background:#1a1010;border-color:#4d2020;color:#cf8f8f">⚠ Safety flags:<br>${redFlags.map(x => `• ${x}`).join("<br>")}</div>`;
+    }
+    if (primary.score > 0) {
+      const m = MECHANISMS[primary.mid];
+      const supportText = primary.supporting.slice(0, 3).map(x => x.label).join(", ") || "No major supporting signs";
+      const conflictText = primary.conflicting.slice(0, 2).map(x => x.label).join(", ");
+      mhtml += `<div class="primary-box" style="border-left-color:${m.color}">
+        <div class="label">Primary hypothesis</div>
+        <div class="name" style="color:${m.color}">${m.label}</div>
+        <div class="desc">${m.desc} - Evidence strength: ${confidenceLabel(primary.confidence)} (${primary.score > 0 ? "+" + primary.score : primary.score})</div>
+        <div class="drug-notes" style="margin-top:8px;font-style:normal;color:#8f8fa0"><strong>Supporting:</strong> ${supportText}${conflictText ? `<br><strong>Conflicting:</strong> ${conflictText}` : ""}</div>
+      </div>`;
+    }
+    sorted.forEach(row => {
+      const m = MECHANISMS[row.mid];
+      const score = row.score;
+      const bw = score > 0 ? Math.max((score / maxScore) * 100, 3) : score < 0 ? Math.max((Math.abs(score) / Math.abs(minScore || 1)) * 40, 3) : 0;
+      const op = score > 0 ? (0.4 + 0.6 * Math.min(score / maxScore, 1)) : 0.6;
+      const bg = score > 0 ? m.color : "#442222";
+      const side = score > 0 ? "left" : "right";
+      const valColor = score > 0 ? (row.confidence > 0.65 ? m.color : "#999") : score < 0 ? "#664444" : "#444";
+      mhtml += `<div class="score-row">
+        <div class="score-label" style="color:${score > 2 ? "#c0c0cc" : "#666"}">${m.label}</div>
+        <div class="score-track">
+          ${score !== 0 ? `<div class="score-bar" style="${side}:0;width:${bw}%;background:${bg};opacity:${op}"></div>` : ""}
+        </div>
+        <div class="score-val" style="font-weight:${score > 5 ? 700 : 400};color:${valColor}">${score > 0 ? "+" + score : score}</div>
+      </div>`;
+    });
+    const topRows = sorted.filter(x => x.score > 0).slice(0, 2);
+    if (topRows.length) {
+      mhtml += `<div class="unexplained-note"><span>Pattern note: </span>${mechanismPatternNote(sorted)}</div>`;
+      topRows.forEach(row => {
+        const mech = MECHANISMS[row.mid];
+        const support = row.supporting.slice(0, 4).map(x => x.label).join(", ");
+        const conflicts = row.conflicting.slice(0, 3).map(x => x.label).join(", ");
+        mhtml += `<div class="confidence-note"><strong style="color:${mech.color}">${mech.label}</strong><br>${support ? `Best explained by: ${support}.` : `Few direct supporting signs yet.`}${conflicts ? `<br>Counter-evidence: ${conflicts}.` : ""}</div>`;
+      });
+    }
+  }
+  document.getElementById("mechTab").innerHTML = mhtml;
+
+  let dhtml = `<div class="disclaimer">⚠ Educational tool only. Drug matching is approximate and should be treated as a teaching aid, not a diagnostic answer. Mixed exposures, dose, tolerance, route, and timing can distort the pattern.</div>`;
+  if (!has) {
+    dhtml += `<div class="empty-state">Select observed signs to see which known drug profiles best match your observations.</div>`;
+  } else if (drugMatches.length === 0) {
+    dhtml += `<div class="uncertain"><div class="title">Uncertain</div><div class="desc">The observed pattern does not fit any stored profile well. That can happen with mixtures, novel compounds, atypical responses, or too few discriminating signs.</div></div>`;
+  } else {
+    const mixed = drugMatches[1] && Math.abs(drugMatches[0].composite - drugMatches[1].composite) < 8;
+    if (mixed) {
+      dhtml += `<div class="unexplained-note"><span>Interpretation note: </span>Top matches are close together, so this looks mixed or ambiguous rather than cleanly single-agent.</div>`;
+    }
+    drugMatches.slice(0, 8).forEach((drug, i) => {
+      const pct = Math.round(drug.coverage * 100);
+      const isTop = i === 0;
+      const pctColor = pct > 70 ? "#F9A03F" : pct > 45 ? "#aaa" : "#666";
+      const support = drug.supported.slice(0, 3).map(x => x.label).join(", ");
+      const conflict = drug.conflicts.slice(0, 2).map(x => x.label).join(", ");
+      const hallmarks = drug.matchedHallmarks.map(sid => getSign(sid)?.label).filter(Boolean).slice(0, 3).join(", ");
+      dhtml += `<div class="drug-card ${isTop?"top":""}">
+        <div class="drug-header">
+          <div><span class="drug-name">${drug.name}</span><span class="drug-class">${drug.class}</span></div>
+          <div class="drug-pct" style="color:${pctColor}">${pct}%</div>
+        </div>
+        <div class="match-track"><div class="match-bar" style="width:${Math.max(pct,3)}%"></div></div>
+        <div class="drug-meta">
+          <span>⏱ ${drug.duration}</span>
+          <span>⚡ onset ${drug.onset}</span>
+          <span>${drug.matchedSigns}/${drug.totalExpected} expected signs</span>
+          <span>${drug.contradictions} contradictions</span>
+        </div>
+        <div class="drug-notes">${drug.notes}</div>
+        <div class="drug-notes" style="font-style:normal;margin-top:8px">
+          ${support ? `<strong>Explained by:</strong> ${support}.<br>` : ""}
+          ${hallmarks ? `<strong>Hallmarks matched:</strong> ${hallmarks}.<br>` : ""}
+          ${conflict ? `<strong>Conflicts:</strong> ${conflict}.` : ""}
+        </div>
+      </div>`;
+    });
+    const top = drugMatches[0];
+    if (top.unexplainedIds.length > 0) {
+      const labels = top.unexplainedIds.map(s => getSign(s)?.label).filter(Boolean).join(", ");
+      dhtml += `<div class="unexplained-note"><span>Signs not explained by top match: </span>${labels}</div>`;
+    }
+  }
+  document.getElementById("drugTab").innerHTML = dhtml;
+
+  let chtml = "";
+  if (has) {
+    chtml = `<div style="margin-top:16px"><div class="section-label small">Active observations (${selected.size})</div><div class="chips">`;
+    selected.forEach(sid => {
+      const s = getSign(sid);
+      if (s) chtml += `<button class="chip" onclick="toggleSign('${sid}')">${s.label} ×</button>`;
+    });
+    chtml += `</div></div>`;
+  }
+  document.getElementById("chipsSection").innerHTML = chtml;
+}
+
+// ════════════════════════════════════════════════════════════
+// EVENT HANDLERS
+// ════════════════════════════════════════════════════════════
+
+function toggleSign(id) {
+  if (selected.has(id)) selected.delete(id); else selected.add(id);
+  render();
+}
+function toggleCat(id) {
+  if (openCats.has(id)) openCats.delete(id); else openCats.add(id);
+  render();
+}
+function clearAll() { selected.clear(); render(); }
+
+document.querySelectorAll(".tab-btn").forEach(b => {
+  b.addEventListener("click", () => { activeTab = b.dataset.tab; render(); });
+});
+
+document.getElementById("signSearch").addEventListener("input", (e) => {
+  signSearch = e.target.value || "";
+  renderSigns();
+});
+
+// Initial render
+render();
+</script>
+</body>
+</html>
